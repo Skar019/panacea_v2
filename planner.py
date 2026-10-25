@@ -20,14 +20,14 @@ Return ONLY JSON like:
   Keywords only, no full sentences."""
 
 SOURCES_BY_DOMAIN = {
-    "research": ["semantic_scholar", "openalex", "pubmed", "arxiv", "huggingface"],
+    "research": ["semantic_scholar", "openalex", "pubmed", "arxiv", "huggingface", "unpaywall"],
     "software": ["github", "huggingface", "guides"],
     "hardware": ["github", "openalex", "cad", "guides"],
 }
 
 # What the student can ask for -> which sources to use
 WANTS_TO_SOURCES = {
-    "papers": ["semantic_scholar", "openalex", "pubmed", "arxiv"],
+    "papers": ["semantic_scholar", "openalex", "pubmed", "arxiv", "unpaywall"],
     "code": ["github", "huggingface"],
     "cad": ["cad"],
     "videos": ["guides"],
@@ -43,19 +43,17 @@ def plan(description, all_sources):
         queries = [q.strip() for q in reply["queries"] if isinstance(q, str) and q.strip()][:3]
         wants = [w for w in (reply.get("wants") or []) if w in WANTS_TO_SOURCES]
         if wants:
-            # The student chose the resource types
             sources = []
             for w in wants:
                 for s in WANTS_TO_SOURCES[w]:
                     if s in all_sources and s not in sources:
                         sources.append(s)
         else:
-            # The model decides
             chosen = SOURCES_BY_DOMAIN.get(domain, all_sources)
             sources = [s for s in chosen if s in all_sources]
         if queries:
             return domain, queries, sources or list(all_sources), wants
-    return "unknown", [description], list(all_sources), []  # no-model fallback
+    return "unknown", [description], list(all_sources), []
 
 
 CLARIFY_PROMPT = """A student describes a project: "{d}"
@@ -68,7 +66,7 @@ Reply with only OK or the question."""
 def clarify(description):
     """Return a follow-up question, or None if no more detail is needed."""
     if len(description.split()) >= 8:
-        return None  # detailed enough: save a model call
+        return None
     reply = ask(CLARIFY_PROMPT.format(d=description))
     if reply is None:
         return "Add more detail: what exactly do you want to find out or build?"

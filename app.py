@@ -3,7 +3,6 @@ import os
 import re
 import streamlit as st
 
-# Hosted on Streamlit Cloud, keys come from "Secrets" instead of a .env file.
 for _k in (
     "NEBIUS_API_KEY",
     "NEBIUS_BASE_URL",
@@ -13,6 +12,7 @@ for _k in (
     "GITHUB_TOKEN",
     "S2_API_KEY",
     "OPENALEX_EMAIL",
+    "UNPAYWALL_EMAIL",
 ):
     try:
         if _k in st.secrets and _k not in os.environ:
@@ -27,7 +27,6 @@ except ImportError:
     pass
 
 try:
-    # Fixes Windows certificate errors
     import truststore
     truststore.inject_into_ssl()
 except ImportError:
@@ -56,6 +55,7 @@ LABELS = {
     "semantic_scholar": "Paper",
     "openalex": "Paper",
     "pubmed": "Paper",
+    "unpaywall": "Open Access PDF",
     "cad": "CAD files",
     "guides": "Tutorial",
     "web": "Web",
@@ -74,8 +74,6 @@ def _cache_key(description, ui_wants):
 
 
 def run(description, ui_wants):
-    """One full search. Good (model-ranked) results are remembered, so a
-    repeated search costs no model calls."""
     key = _cache_key(description, ui_wants)
     cache = _cache()
     if key in cache:
@@ -84,7 +82,6 @@ def run(description, ui_wants):
     domain, queries, sources, model_wants = plan(description, list(ADAPTERS))
     wants = list(ui_wants) or model_wants
     if ui_wants:
-        # The student chose the types explicitly
         sources = []
         for w in ui_wants:
             for s in WANTS_TO_SOURCES.get(w, []):
@@ -108,7 +105,6 @@ def run(description, ui_wants):
 
 
 def clean_title(title):
-    """Tidy titles from web pages: drop embedded links and site-name tails."""
     t = re.sub(r"https?://\S+", "", title or "")
     t = re.sub(r"\s*-\s*Download free.*$", "", t, flags=re.I)
     t = re.sub(
@@ -121,7 +117,6 @@ def clean_title(title):
 
 
 def blurb(summary):
-    """Short description, hiding legal text, transcripts, or tag soup."""
     text = " ".join((summary or "").split())
     low = text.lower()
     if (
@@ -135,7 +130,6 @@ def blurb(summary):
 
 
 def reach_out(r):
-    """Who made this, public facts only, and an editable first message."""
     info = maker_info(r)
     if info:
         src_title = "Public GitHub profile" if r.source == "github" else "Public author record (OpenAlex)"
@@ -184,7 +178,6 @@ def card(r):
 
 
 def execute_search(description, ui_wants):
-    """Check session quota, run search, and update session state."""
     used = st.session_state.get("searches_used", 0)
     has_own_key = bool((st.session_state.get("user_api_key") or "").strip())
     is_cached = _cache_key(description, ui_wants) in _cache()
@@ -211,7 +204,6 @@ def execute_search(description, ui_wants):
     st.session_state["pending_desc"] = None
 
 
-# --- Sidebar: Quota protection & Bring Your Own Key ---
 with st.sidebar:
     st.subheader("Quota & API Key")
     used_count = st.session_state.get("searches_used", 0)
@@ -228,7 +220,6 @@ with st.sidebar:
     if (st.session_state.get("user_api_key") or "").strip():
         st.success("Using your personal key (unlimited session searches).")
 
-# --- Main Page ---
 st.title("🧭 Panacea")
 st.write(
     "Describe any project, in any field. Panacea finds what a mentor "
@@ -260,7 +251,6 @@ if st.button("Find resources", type="primary") and desc.strip():
     else:
         execute_search(clean_desc, wants_tuple)
 
-# --- Optional Follow-up Question Box (for vague inputs) ---
 if st.session_state.get("clarify_q"):
     with st.container(border=True):
         st.markdown(f"**Quick question to narrow this down:** {st.session_state['clarify_q']}")
@@ -283,7 +273,6 @@ if st.session_state.get("clarify_q"):
                 )
                 st.rerun()
 
-# --- Search Results ---
 res = st.session_state.get("result")
 if res:
     ranked = res["ranked"]
