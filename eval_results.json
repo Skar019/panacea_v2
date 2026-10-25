@@ -1,0 +1,88 @@
+{
+  "judged": {
+    "build a 6-axis robot arm with 3D printed parts": {
+      "domain": "hardware",
+      "panacea_rel": 5,
+      "panacea_shown": 6,
+      "baseline_rel": 3,
+      "baseline_shown": 6
+    },
+    "solar powered automated drip irrigation controller using ESP32": {
+      "domain": "hardware",
+      "panacea_rel": 6,
+      "panacea_shown": 6,
+      "baseline_rel": 1,
+      "baseline_shown": 6
+    },
+    "3D printed prosthetic hand controlled by EMG muscle sensors": {
+      "domain": "hardware",
+      "panacea_rel": 6,
+      "panacea_shown": 6,
+      "baseline_rel": 5,
+      "baseline_shown": 6
+    },
+    "low-cost cansat telemetry payload with LoRa 433MHz": {
+      "domain": "hardware",
+      "panacea_rel": 4,
+      "panacea_shown": 6,
+      "baseline_rel": 0,
+      "baseline_shown": 6
+    },
+    "smart HVAC thermostat controller using ESP32 and infrared transmitter": {
+      "domain": "hardware",
+      "panacea_rel": 4,
+      "panacea_shown": 6,
+      "baseline_rel": 4,
+      "baseline_shown": 6
+    },
+    "autonomous line following mobile robot with PID control": {
+      "domain": "hardware",
+      "panacea_rel": 6,
+      "panacea_shown": 6,
+      "baseline_rel": 4,
+      "baseline_shown": 6
+    },
+    "homemade CNC PCB milling machine using stepper motors": {
+      "domain": "hardware",
+      "panacea_rel": 5,
+      "panacea_shown": 6,
+      "baseline_rel": 5,
+      "baseline_shown": 6
+    },
+    "corrosion resistance of zinc phosphate conversion coatings on steel": {
+      "domain": "research",
+      "panacea_rel": 5,
+      "panacea_shown": 6,
+      "baseline_rel": 5,
+      "baseline_shown": 6
+    },
+    "sacrificial anode cathodic protection design for marine steel piles": {
+      "domain": "research",
+      "panacea_rel": 3,
+      "panacea_shown": 6,
+      "baseline_rel": 5,
+      "baseline_shown": 6
+    },
+    "heat retention of brewed bitter leaf Vernonia amygdalina extract": {
+      "domain": "research",
+      "panacea_rel": 1,
+      "panacea_shown": 6,
+      "baseline_rel": 0,
+      "baseline_shown": 6
+    },
+    "microplastic removal efficiency in municipal wastewater treatment plants": {
+      "domain": "research",
+      "panacea_rel": 5,
+      "panacea_shown": 6,
+      "baseline_rel": 3,
+      "baseline_shown": 6
+    },
+    "indirect prompt injection benchmark for tool-using LLM agents": {
+      "domain": "software",
+      "panacea_rel": 4,
+      "panacea_shown": 6,
+      "baseline_rel": 5,
+      "baseline_shown": 5
+    }
+  }
+}
