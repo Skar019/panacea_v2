@@ -28,7 +28,7 @@ SOURCES_BY_DOMAIN = {
 # What the student can ask for -> which sources to use
 WANTS_TO_SOURCES = {
     "papers": ["semantic_scholar", "openalex", "pubmed", "arxiv", "unpaywall"],
-    "code": ["github", "huggingface"],
+    "code": ["github", "huggingface", "unpaywall"],
     "cad": ["cad"],
     "videos": ["guides"],
     "web": ["web"],

@@ -56,6 +56,7 @@ LABELS = {
     "openalex": "Paper",
     "pubmed": "Paper",
     "unpaywall": "Open Access PDF",
+    "unpaywall": "Open Access PDF",
     "cad": "CAD files",
     "guides": "Tutorial",
     "web": "Web",
