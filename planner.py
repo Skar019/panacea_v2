@@ -1,4 +1,4 @@
-﻿from llm import ask, extract_json
+from llm import ask, extract_json
 
 PROMPT = """A student describes a project they want help with:
 "{d}"
@@ -8,29 +8,30 @@ Return ONLY JSON like:
 
 - domain: one of research, software, hardware, other
 - wants: the kinds of resource the student explicitly asked for, chosen from:
-  papers, code, cad, videos, web. Use [] if they did not say. Only include
-  what they actually asked for.
+  papers, code, cad, videos, social, web. Use [] if they did not say. Only include
+  what they actually asked for (use "social" if they mention Twitter, X, TikTok, Instagram, Reddit, or social media).
 - queries: 3 searches to find prior work.
   - for papers: keyword searches a specialist would use: scientific or
     technical names (e.g. Latin plant names), synonyms, the underlying phenomenon.
   - for anything else: SHORT searches of 2 to 3 words, like terms typed into
-    GitHub or YouTube (example: "fraud detection", "6dof robot arm").
+    GitHub, X/Twitter, or YouTube (example: "fraud detection", "6dof robot arm").
   - keep the project's meaning: never leave an ambiguous word alone
     ("robot arm", not "arm").
   Keywords only, no full sentences."""
 
 SOURCES_BY_DOMAIN = {
     "research": ["semantic_scholar", "openalex", "pubmed", "arxiv", "huggingface", "unpaywall"],
-    "software": ["github", "huggingface", "guides"],
-    "hardware": ["github", "openalex", "cad", "guides"],
+    "software": ["github", "huggingface", "guides", "social"],
+    "hardware": ["github", "openalex", "cad", "guides", "social"],
 }
 
 # What the student can ask for -> which sources to use
 WANTS_TO_SOURCES = {
     "papers": ["semantic_scholar", "openalex", "pubmed", "arxiv", "unpaywall"],
-    "code": ["github", "huggingface", "unpaywall"],
+    "code": ["github", "huggingface"],
     "cad": ["cad"],
     "videos": ["guides"],
+    "social": ["social"],
     "web": ["web"],
 }
 
@@ -43,17 +44,19 @@ def plan(description, all_sources):
         queries = [q.strip() for q in reply["queries"] if isinstance(q, str) and q.strip()][:3]
         wants = [w for w in (reply.get("wants") or []) if w in WANTS_TO_SOURCES]
         if wants:
+            # The student chose the resource types
             sources = []
             for w in wants:
                 for s in WANTS_TO_SOURCES[w]:
                     if s in all_sources and s not in sources:
                         sources.append(s)
         else:
+            # The model decides
             chosen = SOURCES_BY_DOMAIN.get(domain, all_sources)
             sources = [s for s in chosen if s in all_sources]
         if queries:
             return domain, queries, sources or list(all_sources), wants
-    return "unknown", [description], list(all_sources), []
+    return "unknown", [description], list(all_sources), []  # no-model fallback
 
 
 CLARIFY_PROMPT = """A student describes a project: "{d}"
@@ -66,7 +69,7 @@ Reply with only OK or the question."""
 def clarify(description):
     """Return a follow-up question, or None if no more detail is needed."""
     if len(description.split()) >= 8:
-        return None
+        return None  # detailed enough: save a model call
     reply = ask(CLARIFY_PROMPT.format(d=description))
     if reply is None:
         return "Add more detail: what exactly do you want to find out or build?"
