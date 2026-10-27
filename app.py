@@ -38,6 +38,7 @@ from adapters import ADAPTERS
 from planner import plan, replan, clarify, WANTS_TO_SOURCES
 from core import search, rank
 from people import maker_info, draft_message
+from guide import generate_guide
 
 PAGE = 6
 MAX_FREE_SEARCHES = 5
@@ -185,6 +186,71 @@ def reach_out(r):
     st.caption("Only information the maker chose to make public is used.")
 
 
+def guide_panel(r):
+    """Interactive mentorship workbench tailored to papers, CAD/hardware, or code/social builds."""
+    base_proj = st.session_state.get("base", "")
+    guides = st.session_state.setdefault("guides", {})
+
+    with st.container(border=True):
+        if r.kind == "paper":
+            st.markdown("#### 📖 Research Paper & Thesis Guide")
+            st.caption(
+                "Learn the structure of a paper in this field, decode the technical lingo, "
+                "and see how to use this study as a blueprint without copying it."
+            )
+            user_tools = ""
+            user_mod = st.text_input(
+                "What is your specific experiment, organism/system, or thesis question?",
+                value=base_proj,
+                key="gmod_" + r.url,
+                placeholder="e.g. 28-day ciprofloxacin bioaccumulation in Clarias gariepinus",
+            )
+        elif r.kind == "cad-files" or r.source == "cad":
+            st.markdown("#### ⚙️ CAD & Engineering Adaptation Guide")
+            st.caption(
+                "Tell Panacea what CAD software you use and how your use case or load differs "
+                "from this model (e.g. using a vise power screw for a vertical lifting jack)."
+            )
+            user_tools = st.text_input(
+                "Your CAD software & fabrication tools",
+                value="SolidWorks",
+                key="gtools_" + r.url,
+                placeholder="e.g. SolidWorks, 3D printer (PLA/PETG), lathe",
+            )
+            user_mod = st.text_input(
+                "How does your use case, load, or mechanism differ from this model?",
+                value="",
+                key="gmod_" + r.url,
+                placeholder="e.g. This model uses the power screw for a clamp, but I am lifting a 50 kg vertical load",
+            )
+        else:
+            st.markdown("#### 🛠️ Implementation & Adaptation Guide")
+            st.caption(
+                "Break down how this project works under the hood and what to modify for your own build."
+            )
+            user_tools = st.text_input(
+                "Your tools / language / hardware setup",
+                value="Python, Windows VS Code",
+                key="gtools_" + r.url,
+                placeholder="e.g. Python, PyTorch, Arduino / ESP32",
+            )
+            user_mod = st.text_input(
+                "What specific modification or feature are you trying to build with this?",
+                value=base_proj,
+                key="gmod_" + r.url,
+                placeholder="e.g. Adapt their pipeline to run locally on my own dataset",
+            )
+
+        btn_label = "Regenerate tailored guide" if r.url in guides else "Generate tailored guide"
+        if st.button(btn_label, key="genguide_" + r.url, type="primary"):
+            with st.spinner("Building your tailored engineering/research guide..."):
+                guides[r.url] = generate_guide(base_proj, r, user_tools, user_mod)
+
+        if r.url in guides:
+            st.markdown("---")
+            st.markdown(guides[r.url])
+
+
 def card(r):
     with st.container(border=True):
         label = LABELS.get(r.source, r.source)
@@ -200,12 +266,25 @@ def card(r):
         if r.creator:
             who = f"[{r.creator}]({r.creator_url})" if r.creator_url else r.creator
             st.caption(f"By {who}")
-            if st.button("Reach out to the maker", key="reach_" + r.url):
-                st.session_state["reach"] = (
-                    None if st.session_state.get("reach") == r.url else r.url
+
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("🛠️ Guide me with this", key="guide_btn_" + r.url):
+                st.session_state["guide_open"] = (
+                    None if st.session_state.get("guide_open") == r.url else r.url
                 )
-            if st.session_state.get("reach") == r.url:
-                reach_out(r)
+        with col2:
+            if r.creator:
+                if st.button("✉️ Reach out to the maker", key="reach_" + r.url):
+                    st.session_state["reach"] = (
+                        None if st.session_state.get("reach") == r.url else r.url
+                    )
+
+        if st.session_state.get("guide_open") == r.url:
+            guide_panel(r)
+
+        if r.creator and st.session_state.get("reach") == r.url:
+            reach_out(r)
 
 
 def execute_search(description, ui_wants):
@@ -232,6 +311,7 @@ def execute_search(description, ui_wants):
     st.session_state["base"] = description
     st.session_state["ui_wants"] = ui_wants
     st.session_state["reach"] = None
+    st.session_state["guide_open"] = None
     st.session_state["clarify_q"] = None
     st.session_state["pending_desc"] = None
 
@@ -257,7 +337,8 @@ with st.sidebar:
 st.title("🧭 Panacea")
 st.write(
     "Describe any project, in any field. Panacea finds what a mentor "
-    "would point you to: papers, code, CAD files, datasets, social builds and tutorials."
+    "would point you to: papers, code, CAD files, datasets, social builds and tutorials—and "
+    "guides you step-by-step on how to adapt any resource to your own use case."
 )
 
 desc = st.text_area(
