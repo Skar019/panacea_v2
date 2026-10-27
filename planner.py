@@ -12,12 +12,25 @@ Return ONLY JSON like:
   what they actually asked for (use "social" if they mention Twitter, X, TikTok, Instagram, Reddit, or social media).
 - queries: 3 searches to find prior work.
   - for papers: keyword searches a specialist would use: scientific or
-    technical names (e.g. Latin plant names), synonyms, the underlying phenomenon.
-  - for anything else: SHORT searches of 2 to 3 words, like terms typed into
-    GitHub, X/Twitter, or YouTube (example: "fraud detection", "6dof robot arm").
+    technical names (e.g. Latin species names, chemical/pharmacological terms), synonyms, and the underlying mechanism.
+  - for anything else: SHORT searches of 2 to 4 words, like terms typed into
+    GitHub, GrabCAD, X/Twitter, or YouTube (example: "fraud detection", "6dof robot arm", "power screw jack").
   - keep the project's meaning: never leave an ambiguous word alone
     ("robot arm", not "arm").
   Keywords only, no full sentences."""
+
+RETRY_PROMPT = """A student describes a project:
+"{d}"
+
+We already tried these search queries: {old_queries}
+Those searches returned too few direct matches (or off-topic results).
+ Sample titles that came back: {sample_titles}
+
+Generate 3 NEW, sharper search queries that take a different angle:
+- If the previous queries were too broad or ambiguous, add the specific domain noun (e.g. "mechanical", "Arduino", "Python", "bioaccumulation", "finite element").
+- If the previous queries were too long or narrow, use standard 2-3 word engineering/scientific terms.
+Return ONLY JSON like:
+{{"queries": ["...", "...", "..."]}}"""
 
 SOURCES_BY_DOMAIN = {
     "research": ["semantic_scholar", "openalex", "pubmed", "arxiv", "huggingface", "unpaywall"],
@@ -57,6 +70,26 @@ def plan(description, all_sources):
         if queries:
             return domain, queries, sources or list(all_sources), wants
     return "unknown", [description], list(all_sources), []  # no-model fallback
+
+
+def replan(description, old_queries, found_results):
+    """Generate up to 3 alternative search queries when the first pass yields weak matches."""
+    sample_titles = [r.title for r in (found_results or [])[:6] if getattr(r, "title", "")]
+    prompt = RETRY_PROMPT.format(
+        d=description,
+        old_queries=", ".join(old_queries),
+        sample_titles="; ".join(sample_titles) if sample_titles else "None found",
+    )
+    reply = extract_json(ask(prompt))
+    if isinstance(reply, dict) and isinstance(reply.get("queries"), list):
+        old_set = {q.lower().strip() for q in old_queries}
+        new_q = [
+            q.strip()
+            for q in reply["queries"]
+            if isinstance(q, str) and q.strip() and q.lower().strip() not in old_set
+        ]
+        return new_q[:3]
+    return []
 
 
 CLARIFY_PROMPT = """A student describes a project: "{d}"

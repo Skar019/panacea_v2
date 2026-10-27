@@ -35,7 +35,7 @@ except ImportError:
     pass
 
 from adapters import ADAPTERS
-from planner import plan, clarify, WANTS_TO_SOURCES
+from planner import plan, replan, clarify, WANTS_TO_SOURCES
 from core import search, rank
 from people import maker_info, draft_message
 
@@ -78,8 +78,8 @@ def _cache_key(description, ui_wants):
 
 
 def run(description, ui_wants):
-    """One full search. Good (model-ranked) results are remembered, so a
-    repeated search costs no model calls."""
+    """One full search with automatic 2-stage retry if initial high-confidence
+    matches (< 3 items scoring >= 8/10) are too few."""
     key = _cache_key(description, ui_wants)
     cache = _cache()
     if key in cache:
@@ -97,6 +97,24 @@ def run(description, ui_wants):
 
     found, errors = search(queries, sources)
     ranked, used_model = rank(description, found, wants=wants)
+
+    retried = False
+    # 2-Stage Retry Loop: if the AI ranker found fewer than 3 strong (>=8/10) matches,
+    # automatically generate sharper alternative queries and re-rank the combined pool.
+    if used_model and len(ranked) < 3:
+        extra_queries = replan(description, queries, found)
+        if extra_queries:
+            retried = True
+            more_found, more_errors = search(extra_queries, sources)
+            errors.update(more_errors)
+            seen_urls = {r.url for r in found}
+            for r in more_found:
+                if r.url not in seen_urls:
+                    seen_urls.add(r.url)
+                    found.append(r)
+            queries = queries + extra_queries
+            ranked, used_model = rank(description, found, wants=wants)
+
     out = dict(
         domain=domain,
         queries=queries,
@@ -105,6 +123,7 @@ def run(description, ui_wants):
         found=len(found),
         errors=errors,
         used_model=used_model,
+        retried=retried,
     )
     if used_model:
         cache[key] = out
@@ -170,7 +189,9 @@ def card(r):
     with st.container(border=True):
         label = LABELS.get(r.source, r.source)
         title = clean_title(r.title).replace("[", "(").replace("]", ")")
-        st.markdown(f"**[{title}]({r.url})** · `{label}`")
+        score = getattr(r, "score", None)
+        score_badge = f" · `{score}/10 match`" if score else ""
+        st.markdown(f"**[{title}]({r.url})** · `{label}`{score_badge}")
         if getattr(r, "why", ""):
             st.caption(f"Why this result: {r.why}")
         b = blurb(r.summary)
@@ -200,7 +221,7 @@ def execute_search(description, ui_wants):
         )
         return
 
-    with st.spinner("Searching..."):
+    with st.spinner("Searching & verifying high-confidence matches..."):
         res, from_cache = run(description, ui_wants)
 
     if not has_own_key and not from_cache:
@@ -293,9 +314,10 @@ if res:
     ranked = res["ranked"]
     shown = st.session_state.get("shown", PAGE)
     src_list = ", ".join(res["sources"])
+    retry_note = " · auto-refined queries for higher precision" if res.get("retried") else ""
     st.caption(
         f"{res['domain']} project · searched {len(res['sources'])} sources ({src_list}) · "
-        f"found {res['found']}, kept {len(ranked)}"
+        f"found {res['found']}, kept {len(ranked)} verified (≥8/10){retry_note}"
     )
 
     if not res["used_model"]:
@@ -306,8 +328,8 @@ if res:
 
     if not ranked:
         st.write(
-            "Nothing relevant turned up. Try different words, or that may "
-            "mean the topic is under-studied."
+            "No high-confidence matches (≥8/10) turned up even after refining the search. "
+            "Try adding more specific technical terms or checking a different resource type."
         )
 
     for r in ranked[:shown]:
@@ -315,8 +337,8 @@ if res:
 
     if ranked:
         st.caption(
-            f"Showing {min(shown, len(ranked))} of {len(ranked)} best "
-            f"matches ({res['found']} found)."
+            f"Showing {min(shown, len(ranked))} of {len(ranked)} verified "
+            f"matches ({res['found']} candidates checked)."
         )
         if shown < len(ranked) and st.button("See more"):
             st.session_state["shown"] = shown + PAGE
